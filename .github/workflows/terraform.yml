@@ -1,0 +1,109 @@
+provider "aws" {
+  
+  region     = "us-east-2"
+}
+resource "aws_vpc" "Ejust-vpc" {
+  cidr_block       = "10.0.0.0/16"
+  instance_tenancy = "default"
+
+  tags = {
+    Name = "Ejust-vpc"
+  }
+}
+resource "aws_security_group" "Ejust-VM-SG" {
+   name        = "Ejust-VM-SG"
+   description = "VM security group"
+   vpc_id="Ejust-vpc"
+
+  // To Allow SSH Transport
+  ingress {
+    from_port = 22
+    protocol = "tcp"
+    to_port = 22
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+// To Allow HTTPS Transport
+  ingress {
+    from_port = 443
+    protocol = "tcp"
+    to_port = 443
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  // To Allow Port 80 Transport
+  ingress {
+    from_port = 80
+    protocol = ""
+    to_port = 80
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    cidr_blocks     = ["0.0.0.0/0"]
+  }
+}
+resource "aws_subnet" "private_1" {
+  vpc_id     = aws_vpc.Ejust-vpc.id
+  cidr_block = "10.0.1.0/24"
+  tags = {
+    Name = "private_1"
+  }
+}
+resource "aws_subnet" "private_2" {
+  vpc_id     = aws_vpc.Ejust-vpc.id
+  cidr_block = "10.0.2.0/24"
+  tags = {
+    Name = "private_2"
+  }
+}
+resource "aws_subnet" "private_3" {
+  vpc_id     = aws_vpc.Ejust-vpc.id
+  cidr_block = "10.0.3.0/24"
+  tags = {
+    Name = "private_3"
+  }
+}
+module "asg" {
+  source = "terraform-aws-modules/autoscaling/aws"
+  version = "~> 3.0"
+ name              = "Ejust-asg"
+  # Launch configuration
+  lc_name = "Ejust-lc"
+  image_id        = "ami-ebd02392"
+  instance_type   = "t2.micro"
+  security_groups = ["Ejust-SG"]
+
+  ebs_block_device = [
+    {
+      device_name           = "/dev/xvdz"
+      volume_type           = "gp2"
+      volume_size           = "20"
+      delete_on_termination = true
+    },
+  ]
+
+
+  # Auto scaling group
+  asg_name                  = "Ejust-ASG"
+  vpc_zone_identifier       = ["private_1", "private_2", "private_3"]
+  health_check_type         = "EC2"
+  min_size                  = 1
+  max_size                  = 3
+  desired_capacity          = 1
+  wait_for_capacity_timeout = 0
+
+  tags = [
+    {
+      key                 = "Environment"
+      value               = "dev"
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Project"
+      value               = "megasecret"
+      propagate_at_launch = true
+    },
+  ]
+}
