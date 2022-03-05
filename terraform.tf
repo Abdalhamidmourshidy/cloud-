@@ -35,7 +35,6 @@ resource "aws_subnet" "private_3" {
 resource "aws_security_group" "Ejust-VM-SG" {
    name        = "Ejust-VM-SG"
    description = "VM security group"
-   vpc_id="Ejust-vpc"
 
   // To Allow SSH Transport
   ingress {
@@ -68,43 +67,41 @@ resource "aws_security_group" "Ejust-VM-SG" {
 }
 resource "aws_instance" "Ejust-VM1" {
   ami = "ami-08b6f2a5c291246a0"
- availability_zone = "us-west-2a"
+ availability_zone = "us-east-2c"
   instance_type = "t2.micro"
   security_groups = ["Ejust-VM-SG"]
   subnet_id= "private_1"
- vpc_id="Ejust-vpc"
+
 }
 resource "aws_instance" "Ejust-VM2" {
   ami = "ami-08b6f2a5c291246a0"
- availability_zone = "us-west-2a"
+ availability_zone = "us-east-2a"
   instance_type = "t2.micro"
   security_groups = ["Ejust-VM-SG"]
 subnet_id= "private_2"
-vpc_id="Ejust-vpc"
+
 }
 resource "aws_instance" "Ejust-VM3" {
   ami = "ami-08b6f2a5c291246a0"
- availability_zone = "us-west-2a"
+  availability_zone = "us-east-2a"
   instance_type = "t2.micro"
   security_groups = ["Ejust-VM-SG"]
 subnet_id= "private_3"
-vpc_id="Ejust-vpc"
+
 }
 resource "aws_ebs_volume" "EBS1" {
-	  availability_zone = "us-west-2a"
+	  availability_zone = "us-east-2c"
 	  size = 20  
-          volume_type = "gp2"
 	}
 
 resource "aws_ebs_volume" "EBS2" {
-	  availability_zone = "us-west-2a"
+	  availability_zone = "us-east-2a"
 	  size = 20  
-          volume_type = "gp2"
+
 	}
 resource "aws_ebs_volume" "EBS3" {
-	  availability_zone = "us-west-2a"
+	  availability_zone = "us-east-2a"
 	  size = 20 
-          volume_type = "gp2"
 	}
 resource "aws_volume_attachment" "ebs_att1" {
   device_name = "/dev/sdh"
@@ -121,3 +118,35 @@ resource "aws_volume_attachment" "ebs_att3" {
   volume_id   = aws_ebs_volume.EBS3.id
   instance_id = aws_instance.Ejust-VM3.id
 }
+
+resource "aws_launch_template" "Ejustlt" {
+  name_prefix   = "Ejustlt"
+  image_id      = "ami-08b6f2a5c291246a0"
+  instance_type = "t2.micro"
+}
+resource "aws_autoscaling_group" "Ejust-ASG" {
+  availability_zones        = ["us-east-2a"]
+  name                      = "Ejust-ASG"
+  max_size                  = 3
+  min_size                  = 1
+  health_check_grace_period = 300
+  health_check_type         = "EC2"
+  force_delete              = true
+launch_template {
+    id      = aws_launch_template.Ejustlt.id
+    version = "$Latest"
+  }
+  tags = [
+    {
+      key                 = "Environment"
+      value               = "dev"
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Project"
+      value               = "megasecret"
+      propagate_at_launch = true
+    },
+  ]
+}
+
